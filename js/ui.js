@@ -78,11 +78,18 @@ function cacheElements() {
     step4Result: document.getElementById('step4-result'),
 
     // Sync section
-    btnDesync: document.getElementById('btn-desync'),
+    btnDesyncOk: document.getElementById('btn-desync-ok'),
+    btnDesyncFail: document.getElementById('btn-desync-fail'),
+    btnDesyncManual: document.getElementById('btn-desync-manual'),
+    desyncAmount: document.getElementById('desync-amount'),
+    btnTestVerify: document.getElementById('btn-test-verify'),
     btnResync: document.getElementById('btn-resync'),
     syncServer: document.getElementById('sync-server'),
     syncClient: document.getElementById('sync-client'),
     syncWindow: document.getElementById('sync-window'),
+    diffValue: document.getElementById('diff-value'),
+    windowStatus: document.getElementById('window-status'),
+    syncTestResult: document.getElementById('sync-test-result'),
 
     // Language & theme
     langUk: document.getElementById('lang-uk'),
@@ -134,7 +141,10 @@ function setupEventListeners() {
   elements.btnExpandSteps.addEventListener('click', toggleStepsExpansion);
 
   // Sync section
-  elements.btnDesync.addEventListener('click', handleDesync);
+  elements.btnDesyncOk.addEventListener('click', () => handleDesync(3));
+  elements.btnDesyncFail.addEventListener('click', () => handleDesync(state.windowSize + 3));
+  elements.btnDesyncManual.addEventListener('click', handleDesyncManual);
+  elements.btnTestVerify.addEventListener('click', handleTestVerify);
   elements.btnResync.addEventListener('click', handleResync);
 
   // Language buttons
@@ -509,13 +519,92 @@ function showVerificationDetails(result) {
 
 /**
  * Handle desynchronization (client gets ahead).
+ *
+ * @param {number} amount - How much to advance the client counter
  */
-function handleDesync() {
-  state.clientCounter += 3;
+function handleDesync(amount) {
+  state.clientCounter += amount;
   updateCounterDisplays();
   updateSyncVisual();
+  clearSyncTestResult();
 
   addLog('log-desync', { counter: state.clientCounter }, 'info');
+}
+
+/**
+ * Handle manual desynchronization with custom amount.
+ */
+function handleDesyncManual() {
+  const amount = parseInt(elements.desyncAmount.value) || 1;
+  handleDesync(amount);
+}
+
+/**
+ * Test verification with current client counter.
+ * Shows what would happen if client tried to verify now.
+ */
+async function handleTestVerify() {
+  if (!state.secret) return;
+
+  // Generate OTP for current client counter (without incrementing)
+  const { code } = await computeAllSteps(state.secret, state.clientCounter, 6);
+
+  // Verify against server
+  const result = await verifyOtp(
+    state.secret,
+    state.serverCounter,
+    code,
+    state.windowSize,
+    6
+  );
+
+  const diff = state.clientCounter - state.serverCounter;
+  const inWindow = diff >= 0 && diff <= state.windowSize;
+
+  let html = '';
+  if (result.success) {
+    html = `
+      <div class="test-success">
+        <h4>✓ Верифікація успішна!</h4>
+        <p>OTP для лічильника ${state.clientCounter}: <code>${code}</code></p>
+        <p>Сервер знайшов співпадіння на позиції ${result.usedCounter}.</p>
+        <p>Різниця лічильників: ${diff} (в межах вікна ${state.windowSize})</p>
+        <p class="note">Після справжньої верифікації сервер оновив би лічильник до ${result.newServerCounter}.</p>
+      </div>
+    `;
+  } else {
+    html = `
+      <div class="test-failure">
+        <h4>✗ Верифікація провалена!</h4>
+        <p>OTP для лічильника ${state.clientCounter}: <code>${code}</code></p>
+        <p>Сервер перевірив лічильники від ${state.serverCounter} до ${state.serverCounter + state.windowSize}.</p>
+        <p>Різниця лічильників: ${diff} (за межами вікна ${state.windowSize})</p>
+        <p class="note">Клієнт випередив сервер занадто сильно. Потрібна ресинхронізація!</p>
+      </div>
+    `;
+  }
+
+  // Show detailed check
+  html += '<div class="test-details"><strong>Деталі перевірки:</strong><ul>';
+  for (const detail of result.details) {
+    const status = detail.match ? '✓' : '✗';
+    const highlight = detail.match ? 'class="match"' : '';
+    html += `<li ${highlight}>Лічильник ${detail.counter}: очікуваний OTP = ${detail.expectedOtp} ${status}</li>`;
+  }
+  html += '</ul></div>';
+
+  elements.syncTestResult.innerHTML = html;
+  elements.syncTestResult.className = 'sync-test-result ' + (result.success ? 'success' : 'failure');
+
+  addLog(result.success ? 'log-verify-success' : 'log-verify-failure', { otp: code, counter: state.clientCounter }, result.success ? 'success' : 'failure');
+}
+
+/**
+ * Clear the sync test result display.
+ */
+function clearSyncTestResult() {
+  elements.syncTestResult.innerHTML = '';
+  elements.syncTestResult.className = 'sync-test-result';
 }
 
 /**
@@ -530,49 +619,79 @@ function handleResync() {
   updateCounterDisplays();
   updateWindowVisual();
   updateSyncVisual();
+  clearSyncTestResult();
 
   addLog('log-resync', { counter: max }, 'info');
 }
 
 /**
- * Update the sync visualization.
+ * Update the sync visualization with detailed window display.
  */
 function updateSyncVisual() {
-  const { syncWindow } = elements;
+  const { syncWindow, diffValue, windowStatus } = elements;
   syncWindow.innerHTML = '';
 
-  // Show the window from server's perspective
   const serverC = state.serverCounter;
   const clientC = state.clientCounter;
   const windowSize = state.windowSize;
+  const diff = clientC - serverC;
+
+  // Update difference display
+  diffValue.textContent = diff >= 0 ? `+${diff}` : diff;
+  diffValue.style.color = diff <= windowSize ? 'var(--green)' : 'var(--red)';
 
   // Calculate range to display
-  const minDisplay = Math.min(serverC, clientC);
-  const maxDisplay = Math.max(serverC + windowSize, clientC);
+  const minDisplay = Math.max(0, Math.min(serverC - 2, clientC - 2));
+  const maxDisplay = Math.max(serverC + windowSize + 2, clientC + 2);
 
   for (let i = minDisplay; i <= maxDisplay; i++) {
     const cell = document.createElement('div');
     cell.className = 'window-cell';
 
-    // Is this the server's current position?
-    if (i === serverC) {
-      cell.style.borderColor = 'var(--server-color)';
-      cell.style.borderWidth = '2px';
+    const isServer = i === serverC;
+    const isClient = i === clientC;
+    const inWindow = i >= serverC && i <= serverC + windowSize;
+    const isOutside = i > serverC + windowSize;
+
+    // Apply classes based on state
+    if (isServer) {
+      cell.classList.add('server-pos');
     }
 
-    // Is this the client's current position?
-    if (i === clientC) {
-      cell.style.background = 'var(--client-bg)';
+    if (isClient) {
+      cell.classList.add('client-pos');
     }
 
-    // Is this within the server's window?
-    if (i >= serverC && i <= serverC + windowSize) {
+    if (inWindow && !isServer) {
       cell.classList.add('in-window');
     }
 
+    if (isOutside) {
+      cell.classList.add('outside');
+    }
+
+    // Special case: client is at server position
+    if (isServer && isClient) {
+      cell.classList.add('synced');
+    }
+
     cell.textContent = i;
+    cell.title = `Лічильник ${i}${isServer ? ' (сервер)' : ''}${isClient ? ' (клієнт)' : ''}`;
     syncWindow.appendChild(cell);
   }
+
+  // Update status message
+  let statusHtml = '';
+  if (diff === 0) {
+    statusHtml = '<span class="status-ok">✓ Лічильники синхронізовані</span>';
+  } else if (diff > 0 && diff <= windowSize) {
+    statusHtml = `<span class="status-ok">✓ Клієнт випереджає на ${diff}. Це в межах вікна (${windowSize}). Верифікація пройде!</span>`;
+  } else if (diff > windowSize) {
+    statusHtml = `<span class="status-error">✗ Клієнт випереджає на ${diff}. Це за межами вікна (${windowSize}). Верифікація провалиться!</span>`;
+  } else {
+    statusHtml = `<span class="status-warning">⚠ Сервер випереджає клієнта на ${-diff}. Це неможливо в нормальній ситуації.</span>`;
+  }
+  windowStatus.innerHTML = statusHtml;
 }
 
 // ===== Logging =====
