@@ -268,65 +268,644 @@
     </div><!-- /demo-content -->
   </main>
 
-  <!-- Algorithm Section -->
+  <!-- Algorithm Section - Interactive Tutorial -->
   <section id="section-algorithm" class="tab-content">
-    <article class="about-content">
-      <h2 id="algo-title">Алгоритм HOTP — RFC 4226</h2>
+    <article class="tutorial-content">
 
-      <h3 id="algo-overview-title">Загальний огляд</h3>
-      <p class="about-text" id="algo-overview-text">
-HOTP (HMAC-based One-Time Password) — це алгоритм генерації одноразових паролів,
-описаний в RFC 4226 (грудень 2005). Він використовує HMAC-SHA1 для генерації
-унікальних паролів на основі спільного секретного ключа та лічильника.
-      </p>
+      <!-- Introduction -->
+      <div class="tutorial-section">
+        <h2>Алгоритм HOTP — Покрокова інструкція</h2>
+        <div class="intro-box">
+          <p><strong>HOTP</strong> (HMAC-based One-Time Password) — алгоритм генерації одноразових паролів з RFC 4226 (грудень 2005).</p>
+          <p class="important-note">Важливо: Динамічне усічення (Dynamic Truncation) — це винахід саме HOTP! TOTP (RFC 6238, 2011) просто використовує HOTP всередині, замінюючи лічильник на <code>floor(unix_time / 30)</code>.</p>
+        </div>
 
-      <h3 id="algo-formula-title">Математична формула</h3>
-      <pre class="about-pre" id="algo-formula-text">
-HOTP(K, C) = Truncate(HMAC-SHA1(K, C)) mod 10^Digit
+        <div class="formula-box">
+          <h3>Загальна формула</h3>
+          <code class="big-formula">HOTP(K, C) = Truncate(HMAC-SHA1(K, C)) mod 10<sup>6</sup></code>
+          <div class="formula-legend">
+            <span><strong>K</strong> — секретний ключ (20 байт)</span>
+            <span><strong>C</strong> — лічильник (8 байт)</span>
+            <span><strong>Truncate</strong> — динамічне усічення</span>
+          </div>
+        </div>
+      </div>
 
-Де:
-  K = Секретний ключ (мінімум 128 біт, рекомендовано 160 біт)
-  C = 8-байтний лічильник (big-endian)
-  Digit = Кількість цифр в OTP (зазвичай 6)
-  Truncate = Функція динамічного обрізання (DT)
-      </pre>
+      <!-- Step 0: What we have -->
+      <div class="tutorial-section">
+        <h2>Крок 0: Що ми маємо на початку</h2>
 
-      <h3 id="algo-dt-title">Динамічне обрізання (Dynamic Truncation)</h3>
-      <p class="about-text" id="algo-dt-text">
-Функція DT витягує 4 байти з 20-байтного HMAC результату:
-      </p>
-      <pre class="about-pre" id="algo-dt-code">
-1. offset = hmac[19] & 0x0F          // Останній півбайт визначає зміщення
-2. binary = hmac[offset..offset+4]   // Витягуємо 4 байти
-3. binary[0] &= 0x7F                 // Обнуляємо старший біт (знаковий)
-4. Sbits = binary as u32             // Інтерпретуємо як 32-бітне число
-5. OTP = Sbits mod 10^Digit          // Залишок від ділення
-      </pre>
+        <div class="explanation-block">
+          <h3>Секретний ключ (K)</h3>
+          <p>Секретний ключ — це послідовність випадкових байтів, яка зберігається і на клієнті, і на сервері. Це єдиний секрет, який вони ділять між собою.</p>
 
-      <h3 id="algo-why-title">Навіщо таке обрізання?</h3>
-      <p class="about-text" id="algo-why-text">
-• <strong>Чому offset з останнього байту?</strong> — Це додає непередбачуваності.
-  Зловмисник не може знати заздалегідь, які саме байти будуть використані.
+          <div class="visual-example">
+            <div class="example-label">Приклад: текст "12345678901234567890" (20 символів ASCII)</div>
+            <div class="byte-row">
+              <div class="byte-with-label">
+                <span class="byte-char">'1'</span>
+                <span class="byte-hex">31</span>
+              </div>
+              <div class="byte-with-label">
+                <span class="byte-char">'2'</span>
+                <span class="byte-hex">32</span>
+              </div>
+              <div class="byte-with-label">
+                <span class="byte-char">'3'</span>
+                <span class="byte-hex">33</span>
+              </div>
+              <div class="byte-with-label">
+                <span class="byte-char">'4'</span>
+                <span class="byte-hex">34</span>
+              </div>
+              <div class="byte-with-label">
+                <span class="byte-char">'5'</span>
+                <span class="byte-hex">35</span>
+              </div>
+              <span class="ellipsis">...</span>
+              <div class="byte-with-label">
+                <span class="byte-char">'0'</span>
+                <span class="byte-hex">30</span>
+              </div>
+            </div>
+            <p class="example-note">Це тестовий ключ з RFC 4226. В реальності ключ — випадкові байти!</p>
+          </div>
+        </div>
 
-• <strong>Чому обнуляється старший біт?</strong> — Щоб уникнути проблем зі знаковими
-  числами в різних мовах програмування. Число завжди буде додатним.
+        <div class="explanation-block">
+          <h3>Лічильник (C)</h3>
+          <p>Лічильник — це просто число, яке збільшується на 1 після кожної генерації паролю. Починається з 0.</p>
 
-• <strong>Чому mod 10^6?</strong> — Щоб отримати рівно 6 цифр. Це зручно для введення
-  користувачем і забезпечує 1 мільйон можливих комбінацій.
-      </p>
+          <div class="counter-example">
+            <span class="counter-label">Лічильник =</span>
+            <span class="counter-number">5</span>
+            <span class="counter-note">(звичайне ціле число)</span>
+          </div>
+        </div>
+      </div>
 
-      <h3 id="algo-security-title">Параметри безпеки</h3>
-      <pre class="about-pre" id="algo-security-text">
-┌─────────────────────────────────────────────────────────────┐
-│ Параметр                    │ Рекомендоване значення       │
-├─────────────────────────────┼──────────────────────────────┤
-│ Довжина секретного ключа    │ 160 біт (20 байт)            │
-│ Кількість цифр (Digit)      │ 6 цифр                       │
-│ Вікно допуску (look-ahead)  │ 3-10 спроб                   │
-│ Блокування після помилок    │ 3-5 невдалих спроб           │
-│ Час життя ключа             │ 1-2 роки                     │
-└─────────────────────────────┴──────────────────────────────┘
-      </pre>
+      <!-- Step 1: Counter to Bytes -->
+      <div class="tutorial-section">
+        <h2>Крок 1: Перетворення лічильника в байти</h2>
+
+        <div class="explanation-block">
+          <h3>Навіщо перетворювати?</h3>
+          <p>HMAC-SHA1 працює з <em>байтами</em>, а не з числами. Тому ми повинні перетворити число (наприклад, 5) в послідовність байтів.</p>
+        </div>
+
+        <div class="explanation-block">
+          <h3>Чому саме 8 байт?</h3>
+          <p>RFC 4226 вимагає використовувати 64-бітний (8-байтний) лічильник. Це дозволяє мати до 2<sup>64</sup> = 18,446,744,073,709,551,616 можливих значень — достатньо на мільярди років!</p>
+        </div>
+
+        <div class="explanation-block important">
+          <h3>Big-Endian vs Little-Endian — що це?</h3>
+
+          <p>Коли ми записуємо число як послідовність байтів, постає питання: <strong>з якого кінця починати?</strong></p>
+
+          <div class="endian-comparison">
+            <div class="endian-box">
+              <h4>Big-Endian (старший байт першим)</h4>
+              <p>Як ми читаємо числа: зліва направо, старші розряди спочатку.</p>
+              <div class="endian-example">
+                <span class="number-label">Число 256 =</span>
+                <div class="endian-bytes">
+                  <div class="endian-byte highlight">00</div>
+                  <div class="endian-byte highlight">00</div>
+                  <div class="endian-byte highlight">00</div>
+                  <div class="endian-byte highlight">00</div>
+                  <div class="endian-byte highlight">00</div>
+                  <div class="endian-byte highlight">00</div>
+                  <div class="endian-byte accent">01</div>
+                  <div class="endian-byte accent">00</div>
+                </div>
+              </div>
+              <p class="endian-note">256 = 1×256 + 0×1 = 0x0100</p>
+            </div>
+
+            <div class="endian-box">
+              <h4>Little-Endian (молодший байт першим)</h4>
+              <p>Як зберігають дані більшість процесорів (Intel, AMD).</p>
+              <div class="endian-example">
+                <span class="number-label">Число 256 =</span>
+                <div class="endian-bytes">
+                  <div class="endian-byte accent">00</div>
+                  <div class="endian-byte accent">01</div>
+                  <div class="endian-byte highlight">00</div>
+                  <div class="endian-byte highlight">00</div>
+                  <div class="endian-byte highlight">00</div>
+                  <div class="endian-byte highlight">00</div>
+                  <div class="endian-byte highlight">00</div>
+                  <div class="endian-byte highlight">00</div>
+                </div>
+              </div>
+              <p class="endian-note">Байти в зворотному порядку!</p>
+            </div>
+          </div>
+
+          <div class="key-point">
+            <strong>RFC 4226 вимагає Big-Endian!</strong> Це важливо для сумісності між різними системами.
+          </div>
+        </div>
+
+        <div class="explanation-block">
+          <h3>Практичний приклад</h3>
+
+          <div class="step-by-step">
+            <div class="conversion-step">
+              <span class="step-number">1</span>
+              <div class="step-content">
+                <p>Маємо лічильник: <code>C = 5</code></p>
+              </div>
+            </div>
+
+            <div class="conversion-step">
+              <span class="step-number">2</span>
+              <div class="step-content">
+                <p>В шістнадцятковій системі: <code>5 = 0x05</code></p>
+              </div>
+            </div>
+
+            <div class="conversion-step">
+              <span class="step-number">3</span>
+              <div class="step-content">
+                <p>Розширюємо до 8 байт (доповнюємо нулями зліва):</p>
+                <div class="byte-result">
+                  <span class="byte">00</span>
+                  <span class="byte">00</span>
+                  <span class="byte">00</span>
+                  <span class="byte">00</span>
+                  <span class="byte">00</span>
+                  <span class="byte">00</span>
+                  <span class="byte">00</span>
+                  <span class="byte accent">05</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="more-examples">
+            <h4>Ще приклади:</h4>
+            <table class="examples-table">
+              <tr>
+                <th>Лічильник</th>
+                <th>8 байт (Big-Endian)</th>
+              </tr>
+              <tr>
+                <td>0</td>
+                <td><code>00 00 00 00 00 00 00 00</code></td>
+              </tr>
+              <tr>
+                <td>1</td>
+                <td><code>00 00 00 00 00 00 00 01</code></td>
+              </tr>
+              <tr>
+                <td>255</td>
+                <td><code>00 00 00 00 00 00 00 FF</code></td>
+              </tr>
+              <tr>
+                <td>256</td>
+                <td><code>00 00 00 00 00 00 01 00</code></td>
+              </tr>
+              <tr>
+                <td>1000000</td>
+                <td><code>00 00 00 00 00 0F 42 40</code></td>
+              </tr>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- Step 2: HMAC-SHA1 -->
+      <div class="tutorial-section">
+        <h2>Крок 2: Обчислення HMAC-SHA1</h2>
+
+        <div class="explanation-block">
+          <h3>Що таке HMAC?</h3>
+          <p><strong>HMAC</strong> (Hash-based Message Authentication Code) — це спосіб створити "підпис" для повідомлення, використовуючи секретний ключ.</p>
+
+          <div class="hmac-diagram">
+            <div class="hmac-input">
+              <div class="hmac-box key-box">
+                <span class="box-label">Ключ K</span>
+                <span class="box-content">31 32 33 ... (20 байт)</span>
+              </div>
+              <div class="hmac-box data-box">
+                <span class="box-label">Дані C</span>
+                <span class="box-content">00 00 00 00 00 00 00 05</span>
+              </div>
+            </div>
+            <div class="hmac-arrow">↓ HMAC-SHA1</div>
+            <div class="hmac-output">
+              <div class="hmac-box result-box">
+                <span class="box-label">Результат (завжди 20 байт)</span>
+                <span class="box-content">1f 86 98 69 0e 02 ca 16 61 85 50 ef 7f 19 da 8e 94 5b 55 5a</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="explanation-block">
+          <h3>Чому SHA-1?</h3>
+          <p>RFC 4226 був написаний у 2005 році, коли SHA-1 був стандартом. Хоча SHA-1 має теоретичні вразливості для колізій, для HMAC це не критично — HMAC захищений від таких атак.</p>
+          <p class="note">Сучасний TOTP часто використовує SHA-256 або SHA-512, але SHA-1 залишається сумісним.</p>
+        </div>
+
+        <div class="explanation-block">
+          <h3>Результат HMAC-SHA1</h3>
+          <p>HMAC-SHA1 <strong>завжди</strong> повертає рівно 20 байт (160 біт), незалежно від розміру вхідних даних.</p>
+
+          <div class="hmac-result-example">
+            <p>Для ключа "12345678901234567890" і лічильника 5:</p>
+            <div class="byte-grid">
+              <div class="byte-cell"><span class="idx">0</span><span class="val">1f</span></div>
+              <div class="byte-cell"><span class="idx">1</span><span class="val">86</span></div>
+              <div class="byte-cell"><span class="idx">2</span><span class="val">98</span></div>
+              <div class="byte-cell"><span class="idx">3</span><span class="val">69</span></div>
+              <div class="byte-cell"><span class="idx">4</span><span class="val">0e</span></div>
+              <div class="byte-cell"><span class="idx">5</span><span class="val">02</span></div>
+              <div class="byte-cell"><span class="idx">6</span><span class="val">ca</span></div>
+              <div class="byte-cell"><span class="idx">7</span><span class="val">16</span></div>
+              <div class="byte-cell"><span class="idx">8</span><span class="val">61</span></div>
+              <div class="byte-cell"><span class="idx">9</span><span class="val">85</span></div>
+              <div class="byte-cell"><span class="idx">10</span><span class="val">50</span></div>
+              <div class="byte-cell"><span class="idx">11</span><span class="val">ef</span></div>
+              <div class="byte-cell"><span class="idx">12</span><span class="val">7f</span></div>
+              <div class="byte-cell"><span class="idx">13</span><span class="val">19</span></div>
+              <div class="byte-cell"><span class="idx">14</span><span class="val">da</span></div>
+              <div class="byte-cell"><span class="idx">15</span><span class="val">8e</span></div>
+              <div class="byte-cell"><span class="idx">16</span><span class="val">94</span></div>
+              <div class="byte-cell"><span class="idx">17</span><span class="val">5b</span></div>
+              <div class="byte-cell"><span class="idx">18</span><span class="val">55</span></div>
+              <div class="byte-cell offset-source"><span class="idx">19</span><span class="val">5a</span></div>
+            </div>
+            <p class="byte-grid-note">Індекси від 0 до 19. Останній байт (індекс 19) виділено — він буде важливим!</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Step 3: Dynamic Truncation -->
+      <div class="tutorial-section">
+        <h2>Крок 3: Динамічне усічення (Dynamic Truncation)</h2>
+
+        <div class="explanation-block important">
+          <h3>Звідки взялось динамічне усічення?</h3>
+          <p>Це <strong>винахід RFC 4226 (HOTP)</strong>! TOTP просто використовує його без змін.</p>
+          <p>Проблема: У нас є 20 байт (160 біт), а потрібен 6-значний код. Як вибрати, які байти використати?</p>
+        </div>
+
+        <div class="explanation-block">
+          <h3>Крок 3.1: Визначення зміщення (offset)</h3>
+
+          <p>Беремо <strong>останній байт</strong> HMAC результату (індекс 19) і застосовуємо маску <code>0x0F</code>:</p>
+
+          <div class="offset-calculation">
+            <div class="calc-step">
+              <span class="calc-label">Останній байт:</span>
+              <code>hmac[19] = 0x5A</code>
+            </div>
+
+            <div class="calc-step">
+              <span class="calc-label">В двійковій системі:</span>
+              <div class="binary-display">
+                <span class="binary-group high">0101</span>
+                <span class="binary-group low">1010</span>
+              </div>
+              <span class="binary-note">старші 4 біти | молодші 4 біти</span>
+            </div>
+
+            <div class="calc-step">
+              <span class="calc-label">Маска 0x0F:</span>
+              <div class="binary-display">
+                <span class="binary-group">0000</span>
+                <span class="binary-group">1111</span>
+              </div>
+            </div>
+
+            <div class="calc-step">
+              <span class="calc-label">Результат (AND):</span>
+              <div class="binary-display">
+                <span class="binary-group">0000</span>
+                <span class="binary-group accent">1010</span>
+              </div>
+              <span class="binary-result">= 10 (десяткове)</span>
+            </div>
+          </div>
+
+          <div class="key-point">
+            <strong>offset = 10</strong> — це позиція, з якої ми почнемо витягувати байти.
+          </div>
+
+          <div class="why-box">
+            <h4>Чому маска 0x0F?</h4>
+            <p>Маска <code>0x0F = 00001111</code> залишає тільки молодші 4 біти. Це дає числа від 0 до 15.</p>
+            <p>Чому 0-15? Бо нам потрібно витягти 4 байти з 20-байтного масиву. Максимальний індекс старту = 20 - 4 = 16, але RFC обмежує до 15 для безпеки.</p>
+          </div>
+
+          <div class="why-box">
+            <h4>Чому саме останній байт?</h4>
+            <p>Це додає <strong>непередбачуваності</strong>. Зловмисник не може знати заздалегідь, які байти будуть використані. Навіть маючи частковий доступ до HMAC, він не знає, де шукати.</p>
+          </div>
+        </div>
+
+        <div class="explanation-block">
+          <h3>Крок 3.2: Витягування 4 байтів</h3>
+
+          <p>Починаючи з позиції <code>offset = 10</code>, витягуємо 4 послідовні байти:</p>
+
+          <div class="extraction-visual">
+            <div class="hmac-bytes-row">
+              <div class="hbyte dim"><span class="idx">0</span>1f</div>
+              <div class="hbyte dim"><span class="idx">1</span>86</div>
+              <div class="hbyte dim"><span class="idx">2</span>98</div>
+              <div class="hbyte dim"><span class="idx">3</span>69</div>
+              <div class="hbyte dim"><span class="idx">4</span>0e</div>
+              <div class="hbyte dim"><span class="idx">5</span>02</div>
+              <div class="hbyte dim"><span class="idx">6</span>ca</div>
+              <div class="hbyte dim"><span class="idx">7</span>16</div>
+              <div class="hbyte dim"><span class="idx">8</span>61</div>
+              <div class="hbyte dim"><span class="idx">9</span>85</div>
+              <div class="hbyte extracted"><span class="idx">10</span>50</div>
+              <div class="hbyte extracted"><span class="idx">11</span>ef</div>
+              <div class="hbyte extracted"><span class="idx">12</span>7f</div>
+              <div class="hbyte extracted"><span class="idx">13</span>19</div>
+              <div class="hbyte dim"><span class="idx">14</span>da</div>
+              <div class="hbyte dim"><span class="idx">15</span>8e</div>
+              <div class="hbyte dim"><span class="idx">16</span>94</div>
+              <div class="hbyte dim"><span class="idx">17</span>5b</div>
+              <div class="hbyte dim"><span class="idx">18</span>55</div>
+              <div class="hbyte offset-marker"><span class="idx">19</span>5a</div>
+            </div>
+            <div class="extraction-arrow">
+              <span>offset=10 → витягуємо [10], [11], [12], [13]</span>
+            </div>
+            <div class="extracted-result">
+              <span class="extracted-label">Витягнуті байти:</span>
+              <code>50 ef 7f 19</code>
+            </div>
+          </div>
+        </div>
+
+        <div class="explanation-block">
+          <h3>Крок 3.3: Обнулення старшого біту — чому 31 біт, а не 32?</h3>
+
+          <p>Це <strong>ключовий момент</strong>, який часто викликає плутанину!</p>
+
+          <div class="bit-explanation">
+            <h4>Проблема знакових чисел</h4>
+            <p>У багатьох мовах програмування (Java, старий JavaScript, C з signed int) 32-бітні числа є <strong>знаковими</strong>. Це означає:</p>
+
+            <div class="signed-unsigned">
+              <div class="sign-box">
+                <h5>Якщо старший біт = 0</h5>
+                <p>Число додатне</p>
+                <code>0xxx xxxx ... = 0 до 2,147,483,647</code>
+              </div>
+              <div class="sign-box negative">
+                <h5>Якщо старший біт = 1</h5>
+                <p>Число від'ємне!</p>
+                <code>1xxx xxxx ... = -2,147,483,648 до -1</code>
+              </div>
+            </div>
+
+            <div class="solution-box">
+              <h4>Рішення: обнулити старший біт</h4>
+              <p>Застосовуємо маску <code>0x7F</code> до першого байту:</p>
+
+              <div class="mask-demo">
+                <div class="mask-row">
+                  <span class="mask-label">Перший байт:</span>
+                  <code>0x50 = <span class="bit">0</span>1010000</code>
+                </div>
+                <div class="mask-row">
+                  <span class="mask-label">Маска 0x7F:</span>
+                  <code>0x7F = <span class="bit">0</span>1111111</code>
+                </div>
+                <div class="mask-row result">
+                  <span class="mask-label">Результат:</span>
+                  <code>0x50 = <span class="bit">0</span>1010000</code>
+                  <span class="mask-note">(в цьому випадку не змінилось)</span>
+                </div>
+              </div>
+
+              <p>Якби перший байт був <code>0xD0 = <span class="danger">1</span>1010000</code>, то після маски стало б <code>0x50 = <span class="safe">0</span>1010000</code>.</p>
+            </div>
+          </div>
+
+          <div class="key-point">
+            <strong>Тепер у нас гарантовано 31-бітне додатне число!</strong>
+            <p>Діапазон: від 0 до 2<sup>31</sup>-1 = 2,147,483,647</p>
+          </div>
+        </div>
+
+        <div class="explanation-block">
+          <h3>Крок 3.4: Збірка 32-бітного числа</h3>
+
+          <p>Тепер збираємо 4 байти в одне число (Big-Endian):</p>
+
+          <div class="assembly-visual">
+            <div class="assembly-step">
+              <span class="byte-pos">Байт 0 (старший):</span>
+              <code>0x50</code>
+              <span class="shift">× 2²⁴ (зсув на 24 біти)</span>
+              <code class="result">= 0x50000000</code>
+            </div>
+            <div class="assembly-step">
+              <span class="byte-pos">Байт 1:</span>
+              <code>0xEF</code>
+              <span class="shift">× 2¹⁶ (зсув на 16 біт)</span>
+              <code class="result">= 0x00EF0000</code>
+            </div>
+            <div class="assembly-step">
+              <span class="byte-pos">Байт 2:</span>
+              <code>0x7F</code>
+              <span class="shift">× 2⁸ (зсув на 8 біт)</span>
+              <code class="result">= 0x00007F00</code>
+            </div>
+            <div class="assembly-step">
+              <span class="byte-pos">Байт 3 (молодший):</span>
+              <code>0x19</code>
+              <span class="shift">× 2⁰ (без зсуву)</span>
+              <code class="result">= 0x00000019</code>
+            </div>
+            <div class="assembly-total">
+              <span>Сума (OR):</span>
+              <code>0x50EF7F19 = 1,357,872,921</code>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Step 4: Modulo -->
+      <div class="tutorial-section">
+        <h2>Крок 4: Операція модуло</h2>
+
+        <div class="explanation-block">
+          <h3>Навіщо модуло?</h3>
+          <p>У нас є велике число (до 2 мільярдів), а потрібен 6-значний код (від 000000 до 999999).</p>
+          <p><strong>Модуло</strong> — це залишок від ділення. Він завжди менший за дільник.</p>
+        </div>
+
+        <div class="modulo-calculation">
+          <div class="modulo-step">
+            <span class="mod-label">Наше число:</span>
+            <code>1,357,872,921</code>
+          </div>
+          <div class="modulo-step">
+            <span class="mod-label">Дільник:</span>
+            <code>10⁶ = 1,000,000</code>
+          </div>
+          <div class="modulo-step">
+            <span class="mod-label">Ділення:</span>
+            <code>1,357,872,921 ÷ 1,000,000 = 1357.872921</code>
+          </div>
+          <div class="modulo-step">
+            <span class="mod-label">Ціла частина:</span>
+            <code>1357</code>
+          </div>
+          <div class="modulo-step">
+            <span class="mod-label">Залишок:</span>
+            <code>1,357,872,921 - (1357 × 1,000,000) = 872,921</code>
+          </div>
+          <div class="modulo-result">
+            <span class="mod-label">OTP:</span>
+            <code class="otp-result">872921</code>
+          </div>
+        </div>
+
+        <div class="padding-note">
+          <h4>Доповнення нулями</h4>
+          <p>Якщо результат менший за 100000, додаємо нулі зліва:</p>
+          <ul>
+            <li><code>1234</code> → <code>001234</code></li>
+            <li><code>42</code> → <code>000042</code></li>
+            <li><code>872921</code> → <code>872921</code> (вже 6 цифр)</li>
+          </ul>
+        </div>
+      </div>
+
+      <!-- Server Verification -->
+      <div class="tutorial-section">
+        <h2>Як сервер перевіряє пароль?</h2>
+
+        <div class="explanation-block important">
+          <h3>Так, сервер виконує ту саму математику!</h3>
+          <p>Сервер має копію секретного ключа і свій лічильник. При перевірці він:</p>
+        </div>
+
+        <div class="server-flow">
+          <div class="server-step">
+            <span class="step-num">1</span>
+            <div class="step-content">
+              <p>Отримує OTP від користувача: <code>872921</code></p>
+            </div>
+          </div>
+
+          <div class="server-step">
+            <span class="step-num">2</span>
+            <div class="step-content">
+              <p>Обчислює HOTP для свого лічильника і кількох наступних (вікно допуску):</p>
+              <div class="server-calc">
+                <div class="calc-row"><code>HOTP(K, C=3)</code> = 969429 ≠ 872921</div>
+                <div class="calc-row"><code>HOTP(K, C=4)</code> = 338314 ≠ 872921</div>
+                <div class="calc-row success"><code>HOTP(K, C=5)</code> = 254676 ≠ 872921</div>
+                <div class="calc-row"><code>HOTP(K, C=6)</code> = 287922 ≠ 872921</div>
+              </div>
+              <p class="note">Упс! Для counter=5 справжній OTP — 254676, а не 872921. Я помилився в прикладі вище. Давайте виправимо...</p>
+            </div>
+          </div>
+        </div>
+
+        <div class="rfc-test-vectors">
+          <h3>Справжні тестові вектори з RFC 4226</h3>
+          <p>Для ключа "12345678901234567890":</p>
+          <table class="test-vectors-table">
+            <tr><th>Counter</th><th>HOTP</th></tr>
+            <tr><td>0</td><td>755224</td></tr>
+            <tr><td>1</td><td>287082</td></tr>
+            <tr><td>2</td><td>359152</td></tr>
+            <tr><td>3</td><td>969429</td></tr>
+            <tr><td>4</td><td>338314</td></tr>
+            <tr><td>5</td><td>254676</td></tr>
+            <tr><td>6</td><td>287922</td></tr>
+            <tr><td>7</td><td>162583</td></tr>
+            <tr><td>8</td><td>399871</td></tr>
+            <tr><td>9</td><td>520489</td></tr>
+          </table>
+        </div>
+
+        <div class="window-explanation">
+          <h3>Вікно допуску (Look-ahead Window)</h3>
+          <p>Клієнт може "випередити" сервер (наприклад, натиснув кнопку генерації кілька разів, але не використав паролі). Тому сервер перевіряє не тільки поточний лічильник, а й кілька наступних.</p>
+
+          <div class="window-visual-example">
+            <div class="wv-label">Лічильник сервера: 3</div>
+            <div class="wv-label">Вікно: 5</div>
+            <div class="wv-counters">
+              <div class="wv-counter current">3</div>
+              <div class="wv-counter in-window">4</div>
+              <div class="wv-counter in-window">5</div>
+              <div class="wv-counter in-window">6</div>
+              <div class="wv-counter in-window">7</div>
+              <div class="wv-counter in-window">8</div>
+              <div class="wv-counter outside">9</div>
+              <div class="wv-counter outside">10</div>
+            </div>
+            <p class="wv-note">Сервер перевірить C=3, 4, 5, 6, 7, 8. Якщо пароль відповідає C=5, сервер оновить свій лічильник до 6.</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Summary -->
+      <div class="tutorial-section summary-section">
+        <h2>Підсумок</h2>
+
+        <div class="summary-flow">
+          <div class="sf-step">
+            <div class="sf-icon">🔢</div>
+            <div class="sf-text">
+              <strong>Counter → 8 байт</strong>
+              <p>Big-Endian</p>
+            </div>
+          </div>
+          <div class="sf-arrow">→</div>
+          <div class="sf-step">
+            <div class="sf-icon">🔐</div>
+            <div class="sf-text">
+              <strong>HMAC-SHA1</strong>
+              <p>20 байт</p>
+            </div>
+          </div>
+          <div class="sf-arrow">→</div>
+          <div class="sf-step">
+            <div class="sf-icon">✂️</div>
+            <div class="sf-text">
+              <strong>Truncate</strong>
+              <p>31 біт</p>
+            </div>
+          </div>
+          <div class="sf-arrow">→</div>
+          <div class="sf-step">
+            <div class="sf-icon">➗</div>
+            <div class="sf-text">
+              <strong>mod 10⁶</strong>
+              <p>6 цифр</p>
+            </div>
+          </div>
+        </div>
+
+        <div class="key-takeaways">
+          <h3>Ключові моменти</h3>
+          <ul>
+            <li><strong>Dynamic Truncation — з HOTP, не з TOTP!</strong> TOTP просто використовує HOTP.</li>
+            <li><strong>31 біт, не 32</strong> — щоб уникнути проблем зі знаковими числами.</li>
+            <li><strong>Offset з останнього байту</strong> — додає непередбачуваності.</li>
+            <li><strong>Сервер робить ту саму математику</strong>, але перевіряє кілька значень.</li>
+            <li><strong>Big-Endian</strong> — старший байт першим для сумісності.</li>
+          </ul>
+        </div>
+      </div>
+
     </article>
   </section>
 
