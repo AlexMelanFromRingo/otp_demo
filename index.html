@@ -244,78 +244,115 @@
       <section class="sync-section">
         <h2 id="sync-title">Демонстрація синхронізації</h2>
 
-        <div class="sync-explanation">
-          <p><strong>Проблема:</strong> Клієнт може "випередити" сервер, якщо користувач згенерував паролі, але не використав їх.</p>
-          <p><strong>Рішення:</strong> Сервер перевіряє не тільки поточний лічильник, а й кілька наступних (вікно допуску).</p>
+        <div class="data-block">
+          <h3>Проблема десинхронізації</h3>
+          <p class="step-desc">Клієнт може "випередити" сервер, якщо користувач згенерував паролі, але не використав їх. Сервер вирішує це через <strong>вікно допуску</strong> — перевіряє не тільки поточний лічильник, а й кілька наступних.</p>
         </div>
 
-        <div class="sync-scenarios">
-          <div class="scenario-card success-scenario">
-            <h4>Сценарій 1: В межах вікна</h4>
-            <p>Клієнт випередив на 3, вікно = 5. Пароль буде прийнято.</p>
-            <button id="btn-desync-ok" class="btn btn-success">+3 (в межах вікна)</button>
-          </div>
+        <div class="data-block">
+          <h3>Спробуйте сценарії</h3>
+          <div class="sync-scenarios">
+            <div class="scenario-card success-scenario">
+              <h4>В межах вікна</h4>
+              <p class="step-desc">Клієнт випередив на 3, вікно = 5. Пароль буде прийнято.</p>
+              <button id="btn-desync-ok" class="btn btn-success">+3 (в межах)</button>
+            </div>
 
-          <div class="scenario-card fail-scenario">
-            <h4>Сценарій 2: За межами вікна</h4>
-            <p>Клієнт випередив занадто сильно. Пароль буде відхилено!</p>
-            <button id="btn-desync-fail" class="btn btn-danger">+вікно+3 (за межами)</button>
-          </div>
+            <div class="scenario-card fail-scenario">
+              <h4>За межами вікна</h4>
+              <p class="step-desc">Клієнт випередив занадто сильно. Пароль відхилено!</p>
+              <button id="btn-desync-fail" class="btn btn-danger">+вікно+3</button>
+            </div>
 
-          <div class="scenario-card neutral-scenario">
-            <h4>Ручне налаштування</h4>
-            <p>Встановіть своє значення випередження:</p>
-            <div class="manual-desync">
-              <input type="number" id="desync-amount" class="input-small" value="2" min="1" max="50">
-              <button id="btn-desync-manual" class="btn btn-warning">Застосувати</button>
+            <div class="scenario-card neutral-scenario">
+              <h4>Своє значення</h4>
+              <div class="manual-desync">
+                <input type="number" id="desync-amount" class="input-small" value="2" min="1" max="50">
+                <button id="btn-desync-manual" class="btn btn-warning">+N</button>
+              </div>
             </div>
           </div>
         </div>
 
-        <div class="sync-visual-container">
-          <h4>Візуалізація лічильників</h4>
-
+        <div class="data-block">
+          <h3>Візуалізація</h3>
           <div class="sync-counters-row">
             <div class="sync-counter-box server-box">
-              <span class="sync-icon">🖥️</span>
-              <span class="sync-counter-label">Сервер</span>
+              <span class="sync-counter-label">🖥️ Сервер</span>
               <span class="sync-counter-value" id="sync-server">0</span>
             </div>
 
-            <div class="sync-diff" id="sync-diff">
-              <span class="diff-label">Різниця:</span>
+            <div class="sync-diff">
+              <span class="diff-label">Різниця</span>
               <span class="diff-value" id="diff-value">0</span>
             </div>
 
             <div class="sync-counter-box client-box">
-              <span class="sync-icon">📱</span>
-              <span class="sync-counter-label">Клієнт</span>
+              <span class="sync-counter-label">📱 Клієнт</span>
               <span class="sync-counter-value" id="sync-client">0</span>
             </div>
           </div>
 
           <div class="sync-window-visual">
             <div class="window-legend">
-              <span class="legend-item"><span class="legend-color current"></span> Поточний лічильник сервера</span>
-              <span class="legend-item"><span class="legend-color in-window"></span> В межах вікна (буде перевірено)</span>
-              <span class="legend-item"><span class="legend-color client-pos"></span> Позиція клієнта</span>
-              <span class="legend-item"><span class="legend-color outside"></span> За межами вікна</span>
+              <span class="legend-item"><span class="legend-color current"></span> Сервер</span>
+              <span class="legend-item"><span class="legend-color in-window"></span> Вікно</span>
+              <span class="legend-item"><span class="legend-color client-pos"></span> Клієнт</span>
+              <span class="legend-item"><span class="legend-color outside"></span> Поза вікном</span>
             </div>
-            <div class="sync-window" id="sync-window">
-              <!-- Generated by JS -->
+            <div class="sync-window" id="sync-window"></div>
+            <div class="window-status" id="window-status"></div>
+          </div>
+
+          <div class="sync-actions">
+            <button id="btn-test-verify" class="btn btn-primary">Спробувати верифікацію</button>
+            <button id="btn-resync" class="btn btn-secondary">Скинути лічильники</button>
+          </div>
+
+          <div id="sync-test-result" class="sync-test-result"></div>
+        </div>
+
+        <!-- How to fix desync -->
+        <div class="data-block">
+          <h3>Як відновити синхронізацію?</h3>
+          <p class="step-desc">Якщо клієнт випередив сервер за межі вікна, є кілька способів відновлення:</p>
+
+          <div class="resync-methods">
+            <div class="resync-method">
+              <h4>1. Протокол ресинхронізації (RFC 4226 §7.4)</h4>
+              <p>Користувач вводить <strong>2-3 послідовних OTP</strong>. Сервер шукає цю послідовність у великому вікні (100-1000). Якщо знайдено — синхронізація відновлена.</p>
+              <div class="resync-example">
+                <code>
+Клієнт: counter = 150 (випередив на 100)
+Сервер: counter = 50, вікно = 5
+
+Звичайна верифікація: ✗ (50+5 < 150)
+
+Ресинхронізація:
+  Користувач вводить OTP для 150, 151
+  Сервер шукає в діапазоні 50-1050
+  Знаходить послідовність на позиції 150
+  Сервер оновлює: counter = 152 ✓
+                </code>
+              </div>
             </div>
-            <div class="window-status" id="window-status">
-              <!-- Status message -->
+
+            <div class="resync-method">
+              <h4>2. Адміністративне скидання</h4>
+              <p>Адміністратор вручну скидає лічильник сервера до значення клієнта. Потребує додаткової автентифікації (пароль, email, телефон).</p>
+            </div>
+
+            <div class="resync-method">
+              <h4>3. Перереєстрація токена</h4>
+              <p>Видалення старого секрету і створення нового. Найбезпечніший, але найменш зручний спосіб.</p>
             </div>
           </div>
-        </div>
 
-        <div class="sync-actions">
-          <button id="btn-test-verify" class="btn btn-primary">Спробувати верифікацію</button>
-          <button id="btn-resync" class="btn btn-secondary">Ресинхронізувати лічильники</button>
+          <div class="resync-note">
+            <strong>Чому не просто збільшити вікно?</strong>
+            <p>Велике вікно (наприклад, 1000) знижує безпеку. Зловмисник, який перехопив OTP, має більше часу на brute-force атаку. RFC рекомендує вікно 3-10 для звичайної роботи.</p>
+          </div>
         </div>
-
-        <div id="sync-test-result" class="sync-test-result"></div>
       </section>
 
     </div><!-- /demo-content -->
