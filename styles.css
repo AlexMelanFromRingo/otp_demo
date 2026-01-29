@@ -1780,11 +1780,11 @@ a {
   max-width: 400px;
 }
 
-/* Byte grid */
+/* Byte grid - for HMAC result visualization */
 .byte-grid {
   display: flex;
   flex-wrap: wrap;
-  gap: 4px;
+  gap: 3px;
   margin: 12px 0;
   justify-content: center;
 }
@@ -1793,21 +1793,27 @@ a {
   display: flex;
   flex-direction: column;
   align-items: center;
-  padding: 4px 6px;
+  justify-content: center;
+  width: 34px;
+  height: 44px;
   background: var(--bg-code);
   border-radius: 4px;
   font-family: var(--font-mono);
-  min-width: 36px;
+  border: 1px solid var(--border);
 }
 
 .byte-grid .byte-cell .idx {
-  font-size: 0.6rem;
+  font-size: 0.55rem;
   color: var(--text-secondary);
+  line-height: 1;
+  margin-bottom: 2px;
 }
 
 .byte-grid .byte-cell .val {
-  font-size: 0.8rem;
+  font-size: 0.75rem;
   font-weight: 600;
+  color: var(--text);
+  line-height: 1;
 }
 
 .byte-grid .byte-cell.offset-source {
@@ -1815,10 +1821,15 @@ a {
   border: 2px solid var(--green);
 }
 
+.byte-grid .byte-cell.offset-source .val {
+  color: var(--green);
+}
+
 .byte-grid-note {
   font-size: 0.8rem;
   color: var(--text-secondary);
   text-align: center;
+  margin-top: 8px;
 }
 
 /* Offset calculation */
@@ -2281,28 +2292,35 @@ a {
   padding: 20px;
   background: var(--bg);
   border-radius: var(--radius);
+  text-align: center;
 }
 
 .rfc-test-vectors h3 {
+  margin-bottom: 8px;
+}
+
+.rfc-test-vectors p {
   margin-bottom: 12px;
+  color: var(--text-secondary);
+  font-size: 0.9rem;
 }
 
 .test-vectors-table {
-  width: 100%;
-  max-width: 300px;
+  margin: 0 auto;
   border-collapse: collapse;
   font-family: var(--font-mono);
 }
 
 .test-vectors-table th,
 .test-vectors-table td {
-  padding: 8px 16px;
-  text-align: left;
+  padding: 8px 20px;
+  text-align: center;
   border-bottom: 1px solid var(--border);
 }
 
 .test-vectors-table th {
   background: var(--bg-code);
+  font-weight: 600;
 }
 
 /* Window explanation */
