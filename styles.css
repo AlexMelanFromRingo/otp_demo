@@ -382,6 +382,7 @@ a {
 
 .panel-content {
   padding: 20px;
+  overflow-x: hidden;
 }
 
 /* ===== Data Blocks ===== */
@@ -389,6 +390,7 @@ a {
   margin-bottom: 20px;
   padding-bottom: 20px;
   border-bottom: 1px solid var(--border);
+  overflow-x: hidden;
 }
 
 .data-block:last-child {
@@ -430,6 +432,8 @@ a {
   border-radius: 6px;
   padding: 12px;
   margin-top: 8px;
+  overflow-x: auto;
+  max-width: 100%;
 }
 
 .result-label {
@@ -1314,6 +1318,36 @@ a {
   .input-otp {
     max-width: 100%;
   }
+
+  .panel-content {
+    padding: 14px;
+  }
+
+  .data-block h3 {
+    font-size: 0.85rem;
+  }
+
+  .result-value {
+    font-size: 0.7rem;
+  }
+
+  .counter-value {
+    font-size: 2rem;
+  }
+
+  .formula-box code.big-formula {
+    font-size: 0.75rem;
+    word-break: break-word;
+  }
+
+  .formula-legend {
+    flex-direction: column;
+    gap: 4px;
+  }
+
+  .formula-legend span {
+    font-size: 0.75rem;
+  }
 }
 
 /* ===== Tutorial Section Styles ===== */
@@ -1323,6 +1357,7 @@ a {
   border-radius: var(--radius);
   padding: 0;
   box-shadow: var(--shadow);
+  overflow-x: hidden;
 }
 
 .tutorial-section {
@@ -1385,6 +1420,8 @@ a {
   color: var(--accent);
   display: block;
   margin-bottom: 16px;
+  word-wrap: break-word;
+  overflow-wrap: break-word;
 }
 
 .formula-legend {
